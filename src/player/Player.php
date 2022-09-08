@@ -86,7 +86,7 @@ use pocketmine\inventory\PlayerCursorInventory;
 use pocketmine\inventory\TemporaryInventory;
 use pocketmine\inventory\transaction\action\DropItemAction;
 use pocketmine\inventory\transaction\InventoryTransaction;
-use pocketmine\inventory\transaction\TransactionBuilderInventory;
+use pocketmine\inventory\transaction\TransactionBuilder;
 use pocketmine\inventory\transaction\TransactionCancelledException;
 use pocketmine\inventory\transaction\TransactionValidationException;
 use pocketmine\item\ConsumableItem;
@@ -1188,7 +1188,7 @@ class Player extends Human implements CommandSender, ChunkListener, IPlayer{
 			return;
 		}
 
-		$oldPos = $this->getLocation();
+		$oldPos = $this->location;
 		$distanceSquared = $newPos->distanceSquared($oldPos);
 
 		$revert = false;
@@ -1206,7 +1206,7 @@ class Player extends Human implements CommandSender, ChunkListener, IPlayer{
 			 * asking for help if you suffer the consequences of messing with this.
 			 */
 			$this->logger->debug("Moved too fast, reverting movement");
-			$this->logger->debug("Old position: " . $this->location->asVector3() . ", new position: " . $newPos);
+			$this->logger->debug("Old position: " . $oldPos->asVector3() . ", new position: " . $newPos);
 			$revert = true;
 		}elseif(!$this->getWorld()->isInLoadedTerrain($newPos)){
 			$revert = true;
@@ -1214,9 +1214,9 @@ class Player extends Human implements CommandSender, ChunkListener, IPlayer{
 		}
 
 		if(!$revert && $distanceSquared != 0){
-			$dx = $newPos->x - $this->location->x;
-			$dy = $newPos->y - $this->location->y;
-			$dz = $newPos->z - $this->location->z;
+			$dx = $newPos->x - $oldPos->x;
+			$dy = $newPos->y - $oldPos->y;
+			$dz = $newPos->z - $oldPos->z;
 
 			$this->move($dx, $dy, $dz);
 		}
@@ -1588,7 +1588,7 @@ class Player extends Human implements CommandSender, ChunkListener, IPlayer{
 
 		$ev = new PlayerBlockPickEvent($this, $block, $item);
 		$existingSlot = $this->inventory->first($item);
-		if($existingSlot === -1 && $this->hasFiniteResources()){
+		if($existingSlot === -1 && ($this->hasFiniteResources() || $this->isSpectator())){
 			$ev->cancel();
 		}
 		$ev->call();
@@ -2487,29 +2487,23 @@ class Player extends Human implements CommandSender, ChunkListener, IPlayer{
 			$inventories[] = $this->currentWindow;
 		}
 
-		$transaction = new InventoryTransaction($this);
-		$mainInventoryTransactionBuilder = new TransactionBuilderInventory($this->inventory);
+		$builder = new TransactionBuilder();
 		foreach($inventories as $inventory){
 			$contents = $inventory->getContents();
 
 			if(count($contents) > 0){
-				$drops = $mainInventoryTransactionBuilder->addItem(...$contents);
+				$drops = $builder->getInventory($this->inventory)->addItem(...$contents);
 				foreach($drops as $drop){
-					$transaction->addAction(new DropItemAction($drop));
+					$builder->addAction(new DropItemAction($drop));
 				}
 
-				$clearedInventoryTransactionBuilder = new TransactionBuilderInventory($inventory);
-				$clearedInventoryTransactionBuilder->clearAll();
-				foreach($clearedInventoryTransactionBuilder->generateActions() as $action){
-					$transaction->addAction($action);
-				}
+				$builder->getInventory($inventory)->clearAll();
 			}
 		}
-		foreach($mainInventoryTransactionBuilder->generateActions() as $action){
-			$transaction->addAction($action);
-		}
 
-		if(count($transaction->getActions()) !== 0){
+		$actions = $builder->generateActions();
+		if(count($actions) !== 0){
+			$transaction = new InventoryTransaction($this, $actions);
 			try{
 				$transaction->execute();
 				$this->logger->debug("Successfully evacuated items from temporary inventories");
