@@ -1013,7 +1013,7 @@ class World implements ChunkManager{
 
 			$tile = $this->getTileAt($b->x, $b->y, $b->z);
 			if($tile instanceof Spawnable && count($fakeStateProperties = $tile->getRenderUpdateBugWorkaroundStateProperties($fullBlock)) > 0){
-				$originalStateData = $blockMapping->toStateData($fullBlock->getStateId());
+				$originalStateData = $blockMapping->toStateData($fullBlock->getStateId(), $mappingProtocol);
 				$fakeStateData = new BlockStateData(
 					$originalStateData->getName(),
 					array_merge($originalStateData->getStates(), $fakeStateProperties),

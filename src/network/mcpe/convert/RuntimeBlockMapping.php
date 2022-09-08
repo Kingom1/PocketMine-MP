@@ -63,8 +63,8 @@ final class RuntimeBlockMapping{
 				self::META_MAP_PATH => '',
 			],
 			ProtocolInfo::PROTOCOL_1_19_0 => [
-				self::CANONICAL_BLOCK_STATES_PATH => '',
-				self::R12_TO_CURRENT_BLOCK_MAP_PATH => '',
+				self::BLOCK_PALETTE_PATH => '',
+				self::META_MAP_PATH => '',
 			],
 			ProtocolInfo::PROTOCOL_1_18_30 => [
 				self::BLOCK_PALETTE_PATH => '-1.18.30',
